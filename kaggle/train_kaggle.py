@@ -67,7 +67,7 @@ def main() -> None:
     sft_config = SFTConfig(
         output_dir="./adapters/qlora-receipt-qwen",
         dataset_text_field="text",
-        max_seq_length=1024,
+        max_length=1024,
         per_device_train_batch_size=4,
         gradient_accumulation_steps=4,
         warmup_steps=10,
