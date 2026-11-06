@@ -24,7 +24,7 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Executing QLoRA fine-tuning on device: {device}")
 
-    model_id = "Qwen/Qwen2.5-0.5B-Instruct"
+    model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
     # 4-bit NF4 Quantization configuration
     bnb_config = BitsAndBytesConfig(
@@ -57,6 +57,9 @@ def main() -> None:
         task_type="CAUSAL_LM",
     )
     model = get_peft_model(model, peft_config)
+    for p in model.parameters():
+        if p.dtype == torch.bfloat16:
+            p.data = p.data.to(torch.float16)
     model.print_trainable_parameters()
 
     # Load CORD OCR dataset
@@ -69,7 +72,7 @@ def main() -> None:
     val_data = dataset["validation"].map(format_cord, remove_columns=dataset["validation"].column_names)
 
     sft_config = SFTConfig(
-        output_dir="./adapters/qlora-receipt-qwen",
+        output_dir="./adapters/qlora-receipt-tinyllama",
         dataset_text_field="text",
         max_length=1024,
         per_device_train_batch_size=4,
