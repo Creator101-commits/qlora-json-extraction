@@ -3,19 +3,25 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
+from typing import Any
+
+# Ensure required libraries are installed in Kaggle environment
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "trl", "peft", "bitsandbytes"])
 
 import torch
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
-from trl import SFTTrainer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from trl import SFTConfig, SFTTrainer
 
 
 def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Executing QLoRA fine-tuning on device: {device}")
 
-    model_id = "meta-llama/Llama-3.2-1B-Instruct"
+    model_id = "Qwen/Qwen2.5-0.5B-Instruct"
 
     # 4-bit NF4 Quantization configuration
     bnb_config = BitsAndBytesConfig(
@@ -52,31 +58,39 @@ def main() -> None:
     # Load CORD OCR dataset
     dataset = load_dataset("naver-clova-ix/cord-v2")
 
-    training_args = TrainingArguments(
-        output_dir="./adapters/qlora-receipt-llama",
+    def format_cord(example: dict[str, Any]) -> dict[str, str]:
+        return {"text": f"Receipt OCR:\n{example.get('id', '')}\nJSON:\n{example.get('ground_truth', '')}"}
+
+    train_data = dataset["train"].map(format_cord)
+    val_data = dataset["validation"].map(format_cord)
+
+    sft_config = SFTConfig(
+        output_dir="./adapters/qlora-receipt-qwen",
+        dataset_text_field="text",
+        max_seq_length=1024,
         per_device_train_batch_size=4,
         gradient_accumulation_steps=4,
-        warmup_ratio=0.05,
-        max_steps=200,
+        warmup_steps=10,
+        max_steps=50,
         learning_rate=2e-4,
         fp16=False,
         bf16=True,
-        logging_steps=10,
+        logging_steps=5,
         save_strategy="steps",
-        save_steps=50,
+        save_steps=25,
         report_to="none",
     )
 
-    trainer = SFTTrainer(
-        model=model,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset["validation"],
-        peft_config=peft_config,
-        dataset_text_field="text",
-        max_seq_length=1024,
-        tokenizer=tokenizer,
-        args=training_args,
-    )
+    trainer_kwargs: dict[str, Any] = {
+        "model": model,
+        "train_dataset": train_data,
+        "eval_dataset": val_data,
+        "args": sft_config,
+    }
+    try:
+        trainer = SFTTrainer(processing_class=tokenizer, **trainer_kwargs)
+    except TypeError:
+        trainer = SFTTrainer(tokenizer=tokenizer, **trainer_kwargs)
 
     print("Beginning 4-bit QLoRA Supervised Fine-Tuning...")
     trainer.train()
