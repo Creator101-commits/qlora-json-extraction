@@ -10,6 +10,9 @@ from typing import Any
 # Ensure required libraries are installed in Kaggle environment
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "trl", "peft", "bitsandbytes"])
 
+# Restrict to single GPU to prevent SFTTrainer DataParallel conflict
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 import torch
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
