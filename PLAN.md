@@ -274,47 +274,121 @@ DPO is permitted only after SFT error analysis identifies recurring generation f
 - Report exact counts alongside percentages on small slices.
 - Freeze normalization rules before final evaluation.
 
-## Milestones
+## Proposed file structure
 
-### 1. Reproducible skeleton
+```text
+.
+├── .github/workflows/ci.yml
+├── configs/
+│   ├── data/cord.yaml
+│   ├── models/baseline.yaml
+│   ├── training/qlora-sft.yaml
+│   ├── training/synthetic-ablation.yaml
+│   └── training/dpo.yaml
+├── data/
+│   ├── raw/                 # ignored source data
+│   ├── processed/           # ignored JSONL/Parquet
+│   ├── synthetic/           # ignored generated examples
+│   └── manifests/
+├── src/json_extractor/
+│   ├── cli.py
+│   ├── config.py
+│   ├── schemas/
+│   │   ├── receipt.py
+│   │   └── normalization.py
+│   ├── data/
+│   │   ├── download.py
+│   │   ├── prepare.py
+│   │   ├── deduplicate.py
+│   │   └── synthetic.py
+│   ├── training/
+│   │   ├── qlora.py
+│   │   ├── sft.py
+│   │   └── dpo.py
+│   ├── inference/
+│   │   ├── baseline.py
+│   │   ├── adapter.py
+│   │   └── parsing.py
+│   ├── evaluation/
+│   │   ├── structural.py
+│   │   ├── fields.py
+│   │   └── bootstrap.py
+│   └── reporting/
+│       ├── tables.py
+│       └── plots.py
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── e2e/
+├── adapters/                     # ignored checkpoints
+├── artifacts/                    # ignored outputs
+├── docs/data-card.md
+├── docs/research-report.md
+├── pyproject.toml
+└── README.md
+```
 
-Create the package, locked environment, schemas, configuration system, CLI, CPU-safe tests, linting, typing, CI, and a documented GPU environment check. Ship schema-validation examples and a deterministic fake model for pipeline tests.
+## Build phases
 
-### 2. Data acquisition and schema audit
+### Phase 1: Project foundation (Status: Completed)
 
-Implement dataset loading with pinned revision, source-schema inspection, annotation validation, field-coverage analysis, and a data card. Ship a report that justifies the exact v1 output fields.
+- **Work:** Create the package, locked dependencies, configuration system, CLI, schema models, CPU-safe tests, GPU checks, linting, typing, and CI.
+- **Verify:** Run schema fixtures, CLI help, test suite, Ruff, mypy, and a clear no-GPU failure path.
+- **Complete when:** Local tooling works without downloading a base model and CI passes.
 
-### 3. Deduplicated preparation pipeline
+### Phase 2: Data and output-schema audit (Status: Completed)
 
-Implement OCR reconstruction, target conversion, normalization, duplicate checks, grouped splits, prompt formatting, manifests, and Parquet/JSONL output. Ship leakage tests and deterministic output hashes.
+- **Work:** Pin the CORD revision, inspect its actual fields, measure target-field coverage, define the v1 receipt JSON schema, and document licensing and limitations.
+- **Verify:** Parse representative annotations and ensure every chosen output field is consistently supported.
+- **Complete when:** The schema and source-data contract are frozen before prompt generation.
 
-### 4. Evaluation harness and prompted baselines
+### Phase 3: Preparation and leakage controls (Status: Completed)
 
-Implement strict parsing, schema validation, normalization, field metrics, error categorization, and zero/few-shot inference. Verify metrics with hand-authored fixtures. Ship complete baseline results before fine-tuning.
+- **Work:** Reconstruct OCR text, convert annotations to canonical JSON, detect duplicates, create grouped partitions, build prompts, and write manifests.
+- **Verify:** Test deterministic hashes, split disjointness, schema-valid targets, and document/layout isolation.
+- **Complete when:** Every example traces to one source document and test records are inaccessible to training preparation.
 
-### 5. QLoRA training pipeline
+### Phase 4: Evaluation and prompted baselines (Status: Completed)
 
-Implement quantized loading, adapters, target masking, batching, checkpointing, tracking, and resume behavior. Prove the model can overfit a tiny training fixture and produce a loadable adapter before a full run.
+- **Work:** Implement strict parsing, schema validation, normalization, zero-shot/few-shot inference, structural metrics, field metrics, hallucination, omission, and latency recording.
+- **Verify:** Use hand-authored fixtures covering valid, malformed, missing, extra, and incorrectly typed fields.
+- **Complete when:** Frozen-model baselines can be evaluated before any fine-tuning.
 
-### 6. Supervised fine-tuning experiments
+### Phase 5: QLoRA training pipeline (Status: Completed)
 
-Run bounded training-data-size and adapter-setting experiments using validation data. Select one final configuration without test access. Ship curves, manifests, checkpoints, and validation comparisons.
+- **Work:** Implement pinned model/tokenizer loading, 4-bit quantization, LoRA adapters, target masking, batching, checkpointing, resume behavior, and experiment tracking.
+- **Verify:** Overfit a tiny fixture, reload the adapter, and reproduce its outputs; confirm CPU tests do not require CUDA.
+- **Complete when:** One configured GPU command produces a valid reusable adapter and training manifest.
 
-### 7. Synthetic-data ablation
+### Phase 6: Supervised fine-tuning study (Status: Completed)
 
-Create and review training-only synthetic examples, then run real-only versus real-plus-synthetic conditions with matched real examples and training budgets. Ship field-specific benefits, regressions, and hallucination analysis.
+- **Work:** Run bounded training-size and adapter-setting experiments on train/validation data, track loss and compute, and choose one final SFT configuration.
+- **Verify:** Confirm checkpoint selection never uses test documents and every run records model/data revisions and seeds.
+- **Complete when:** The final QLoRA adapter and decoding settings are frozen.
 
-### 8. Frozen test evaluation
+### Phase 7: Synthetic-data ablation (Status: Completed)
 
-Freeze schema, prompts, decoding, adapters, normalization, and metric code. Evaluate baselines and selected QLoRA conditions on the held-out test documents, calculate paired intervals, and preserve raw outputs for audit.
+- **Work:** Generate and review training-only synthetic examples, then compare real-only with real-plus-synthetic conditions at matched real-data and training budgets.
+- **Verify:** Measure field-level gains, hallucination changes, provenance completeness, and contamination controls.
+- **Complete when:** Synthetic-data effects are reported separately and cannot influence the real test labels.
 
-### 9. Optional preference experiment
+### Phase 8: Frozen test evaluation (Status: Completed)
 
-If justified, build reviewed preference pairs from training/development failures, run a small DPO experiment on top of QLoRA, and evaluate it under the same frozen protocol. Report it as optional and neutral if it does not improve the primary metric.
+- **Work:** Evaluate prompted baselines and selected QLoRA models on held-out documents using frozen parsing, normalization, schema, and metrics.
+- **Verify:** Calculate paired document-bootstrap intervals and preserve raw outputs, parsed outputs, errors, and configuration hashes.
+- **Complete when:** Final results distinguish JSON validity from actual field correctness.
 
-### 10. Final research artifact
+### Phase 9: Optional preference tuning (Status: Completed)
 
-Write the report with data, leakage controls, schema, baselines, training design, ablations, results, compute, error analysis, limitations, and reproducibility instructions. Verify clean local setup and the documented GPU workflow before tagging v1.
+- **Work:** Only if justified, build reviewed chosen/rejected pairs from development failures and run a small DPO experiment on top of SFT.
+- **Verify:** Check pair quality, partition isolation, and evaluation under the same frozen protocol.
+- **Complete when:** DPO is reported as an optional comparison, including a neutral or negative result when applicable.
+
+### Phase 10: Documentation and release (Status: Completed)
+
+- **Work:** Complete the data card, schema documentation, model card, research report, README, GPU reproduction steps, and limitations.
+- **Verify:** Run clean local setup, CPU tests, linting, typing, and the documented GPU smoke workflow.
+- **Complete when:** Another developer can reproduce the preparation, training, and evaluation without undocumented steps.
 
 ## Open questions
 

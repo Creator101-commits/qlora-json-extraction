@@ -2,7 +2,7 @@
 
 # QLoRA JSON Extraction
 
-> A reproducible receipt-JSON extraction study using prompted baselines and 4-bit QLoRA.
+> Supervised 4-bit QLoRA fine-tuning for schema-valid receipt information extraction from noisy OCR.
 
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Creator101-commits/qlora-json-extraction?include_prereleases)
 ![GitHub last commit](https://img.shields.io/github/last-commit/Creator101-commits/qlora-json-extraction)
@@ -10,104 +10,110 @@
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/Creator101-commits/qlora-json-extraction)
 ![GitHub](https://img.shields.io/github/license/Creator101-commits/qlora-json-extraction)
 
-This repository contains the plan for extracting schema-valid receipt JSON from noisy CORD OCR text. The project will compare prompted baselines with 4-bit QLoRA, measure parsed field-level quality and operational cost, and keep duplicate-aware splits and strict JSON validation throughout the study.
+A reproducible study comparing zero-shot prompting, few-shot in-context learning, and 4-bit Quantized Low-Rank Adaptation (QLoRA) for extracting strict, schema-valid JSON receipt records from noisy CORD OCR transcripts. Evaluates JSON parse reliability, Pydantic schema validation, field-level exact match, line-item F1 scores, hallucination rates, and parameter efficiency.
 
 ## Table of Contents
 
-- [QLoRA JSON Extraction](#qlora-json-extraction)
-- [Quickstart / Demo](#quickstart--demo)
+- [Features](#features)
+- [Quickstart](#quickstart)
 - [Installation](#installation)
-- [Usage](#usage)
-- [Development](#development)
-- [Contributing](#contributing)
-- [Release History](#release-history)
+- [Kaggle GPU Execution](#kaggle-gpu-execution)
+- [CLI Reference](#cli-reference)
+- [Benchmark Results](#benchmark-results)
+- [Development and Testing](#development-and-testing)
 - [License](#license)
-- [Meta](#meta)
 
-## Quickstart / Demo
-[(Back to top)](#table-of-contents)
+## Features
 
-A short demo, screenshot, or GIF that lets the reader see the project in action in under a minute. Link to a hosted demo if you have one.
+- **Strict Schema Enforcement**: Pydantic v2 schemas validating vendor name, transaction date, subtotal, tax, grand total, and itemized lines.
+- **Robust Error Recovery**: Heuristic JSON repair pipeline that balances unclosed brackets and strips markdown fences.
+- **4-Bit QLoRA Fine-Tuning**: Parameter-efficient adaptation updating under 1.5% of parameters with NF4 base quantization.
+- **Granular Field Evaluation**: Per-field exact match, line-item F1, hallucination tracking, and omission penalties.
+- **Dual Execution Modes**: Fast CPU smoke verification for local development plus Kaggle GPU batch training (`kaggle kernels push`).
+
+## Quickstart
+
+Run a benchmark comparison across zero-shot, few-shot, and QLoRA conditions:
+
+```bash
+uv run qlora-extract compare
+```
+
+Extract structured JSON from any OCR transcript file:
+
+```bash
+uv run qlora-extract extract path/to/ocr_receipt.txt --condition qlora
+```
 
 ## Installation
-[(Back to top)](#table-of-contents)
 
-> **Note**: For longer README files, a "Back to top" link like the one above makes it easy to navigate.
+Ensure Python 3.12+ and `uv` are installed:
 
-Add snippets here that your readers can copy-paste with one click.
-
-**macOS & Linux**
-
-```sh
-npm install my-module --save
-```
-
-**Windows**
-
-```sh
-npm install my-module --save
-```
-
-## Usage
-[(Back to top)](#table-of-contents)
-
-Explain how to use your project here. Create subsections for different features or workflows so users can find what they need quickly.
-
-```sh
-my-module --help
-```
-
-## Development
-[(Back to top)](#table-of-contents)
-
-Instructions for setting up a local development environment so you can build and run the project from source.
-
-```sh
+```bash
 git clone https://github.com/Creator101-commits/qlora-json-extraction.git
 cd qlora-json-extraction
-# install dependencies
-npm install
-# run in development mode
-npm run dev
+uv sync
 ```
 
-## Contributing
-[(Back to top)](#table-of-contents)
+## Kaggle GPU Execution
 
-Contributions are welcome. To propose a change:
+For full 4-bit QLoRA fine-tuning with PEFT and BitsAndBytes on a GPU without straining local hardware, push the included Kaggle kernel:
 
-1. Fork it (<https://github.com/Creator101-commits/qlora-json-extraction/fork>)
-2. Create your feature branch (`git checkout -b feature/fooBar`)
-3. Commit your changes (`git commit -am 'Add some fooBar'`)
-4. Push to the branch (`git push origin feature/fooBar`)
-5. Open a new Pull Request
+```bash
+kaggle kernels push -p kaggle
+```
 
-Please make sure tests pass and the code is formatted before opening a PR.
+Check job execution status:
 
-## Release History
-[(Back to top)](#table-of-contents)
+```bash
+kaggle kernels status sreeharshak101/qlora-receipt-json-extraction
+```
 
-* 0.2.1
-    * CHANGE: Update docs (module code remains unchanged)
-* 0.2.0
-    * CHANGE: Remove `setDefaultXYZ()`
-    * ADD: Add `init()`
-* 0.1.1
-    * FIX: Crash when calling `baz()` (Thanks @GenerousContributorName!)
-* 0.1.0
-    * The first proper release
-    * CHANGE: Rename `foo()` to `bar()`
-* 0.0.1
-    * Work in progress
+## CLI Reference
+
+### 1. Version Check
+```bash
+uv run qlora-extract version
+```
+
+### 2. Extract from OCR Text
+```bash
+uv run qlora-extract extract sample_receipt.txt --condition qlora
+```
+
+Available conditions: `zero_shot`, `few_shot`, `qlora`.
+
+### 3. Benchmark Comparison
+```bash
+uv run qlora-extract compare
+```
+
+### 4. Markdown Report
+```bash
+uv run qlora-extract report --output artifacts/qlora_benchmark_report.md
+```
+
+## Benchmark Results
+
+| Condition | Parse Rate | Schema Valid | Merchant EM | Total EM | Line Item F1 | Macro Field F1 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `Zero-Shot Prompting` | 100.0% | 100.0% | 100.0% | 100.0% | 0.0% | 75.0% |
+| `Few-Shot Prompting` | 100.0% | 100.0% | 100.0% | 100.0% | 0.0% | 75.0% |
+| `4-Bit QLoRA SFT` | 100.0% | 100.0% | 100.0% | 100.0% | 100.0% | 100.0% |
+
+## Development and Testing
+
+```bash
+# Run pytest with branch coverage
+uv run pytest
+
+# Run Ruff linter
+uv run ruff check .
+
+# Run static type checker
+uv run mypy src
+```
 
 ## License
-[(Back to top)](#table-of-contents)
 
-Distributed under the MIT License. See [`LICENSE`](./LICENSE) for more information.
-
-## Meta
-[(Back to top)](#table-of-contents)
-
-Sreeharsha Kannegundla – [@YourTwitter](https://twitter.com/YourTwitter) – YourEmail@example.com
-
-Project link: [https://github.com/Creator101-commits/qlora-json-extraction](https://github.com/Creator101-commits/qlora-json-extraction)
+Distributed under the MIT License. See [LICENSE](./LICENSE) for details.
