@@ -61,8 +61,8 @@ def main() -> None:
     def format_cord(example: dict[str, Any]) -> dict[str, str]:
         return {"text": f"Receipt OCR:\n{example.get('id', '')}\nJSON:\n{example.get('ground_truth', '')}"}
 
-    train_data = dataset["train"].map(format_cord)
-    val_data = dataset["validation"].map(format_cord)
+    train_data = dataset["train"].map(format_cord, remove_columns=dataset["train"].column_names)
+    val_data = dataset["validation"].map(format_cord, remove_columns=dataset["validation"].column_names)
 
     sft_config = SFTConfig(
         output_dir="./adapters/qlora-receipt-qwen",
