@@ -42,7 +42,6 @@ def main() -> None:
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
         quantization_config=bnb_config,
-        torch_dtype=torch.float16,
         device_map="auto",
     )
     model = prepare_model_for_kbit_training(model)
@@ -57,9 +56,6 @@ def main() -> None:
         task_type="CAUSAL_LM",
     )
     model = get_peft_model(model, peft_config)
-    for p in model.parameters():
-        if p.dtype == torch.bfloat16:
-            p.data = p.data.to(torch.float16)
     model.print_trainable_parameters()
 
     # Load CORD OCR dataset
@@ -80,7 +76,7 @@ def main() -> None:
         warmup_steps=10,
         max_steps=50,
         learning_rate=2e-4,
-        fp16=True,
+        fp16=False,
         bf16=False,
         logging_steps=5,
         save_strategy="steps",
