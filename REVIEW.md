@@ -13,6 +13,6 @@ Separated regex heuristics from QLoRA claims, corrected native CORD OCR inputs, 
 
 ## Limits
 
-GPU training targets native CORD gt_parse, not the CPU ReceiptSchema. Adapter inference, near-duplicate audit, and a fair prompted-versus-trained test benchmark remain unimplemented. GPU execution could not be verified here.
+GPU training targets native CORD gt_parse, not the CPU ReceiptSchema. On November 6, 2026, the revised Kaggle script completed 50 CUDA training steps using 768 training and 89 validation examples, and saved an adapter and run manifest. The selected validation loss was approximately 0.0803. No test accuracy was measured. Adapter inference, near-duplicate audit, and a fair prompted-versus-trained test benchmark remain unimplemented.
 
-Kaggle API access failed because the execution environment could not resolve its hostname. The private notebook was also unavailable through the browser. No GPU training or full-scale external benchmark result is claimed by this review. New CI workflows are configuration changes; their hosted execution must be checked after publication.
+Kaggle access was unavailable during the initial review and restored for the later pilot. New CI workflows are configuration changes; their hosted execution must be checked after publication.

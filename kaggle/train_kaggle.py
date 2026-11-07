@@ -37,6 +37,7 @@ def main() -> None:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "peft", "bitsandbytes"])
     import torch
     from datasets import Dataset, load_dataset
+    from huggingface_hub import model_info
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
     from transformers import (
         AutoModelForCausalLM,
@@ -51,10 +52,14 @@ def main() -> None:
         raise RuntimeError("This 4-bit training job requires a CUDA GPU.")
     set_seed(42)
     model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    model_revision = model_info(model_id).sha
+    if not model_revision:
+        raise RuntimeError("Could not resolve the model revision.")
+    tokenizer = AutoTokenizer.from_pretrained(model_id, revision=model_revision)
     tokenizer.pad_token = tokenizer.eos_token
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
+        revision=model_revision,
         quantization_config=BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
@@ -164,7 +169,7 @@ def main() -> None:
         json.dumps(
             {
                 "model_id": model_id,
-                "model_revision": model.config._commit_hash,
+                "model_revision": model_revision,
                 "dataset_id": dataset_id,
                 "dataset_revision": dataset_revision,
                 "train_examples": len(train_rows),
