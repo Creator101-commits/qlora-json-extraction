@@ -5,7 +5,7 @@ A reproducible Python study comparing prompted baselines with 4-bit QLoRA for ex
 ## Build commands
 
 ```bash
-# Planned after Milestone 1; not runnable yet.
+# Verification commands.
 uv sync
 uv run pytest
 uv run ruff check .
@@ -14,7 +14,7 @@ uv run mypy src
 
 ## Platform support
 
-- Linux with CUDA is the target for training; Python 3.11.
+- Linux with CUDA is the target for training; Python 3.12+.
 - CPU-safe tests are required; practical training targets a 16 GB-class GPU and compatible bitsandbytes setup.
 
 ## Key conventions

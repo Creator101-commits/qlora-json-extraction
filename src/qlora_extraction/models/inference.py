@@ -1,75 +1,87 @@
-"""Extraction inference engines for baseline prompting and fine-tuned QLoRA models."""
+"""Deterministic regex demonstration; this module does not load a trained model."""
 
 from __future__ import annotations
 
+import json
 import re
 
-from qlora_extraction.schema import ReceiptItem, ReceiptSchema, parse_and_validate_receipt_json
+from qlora_extraction.schema import ReceiptSchema, parse_and_validate_receipt_json
 
 
 class ReceiptExtractor:
-    """Inference engine extracting structured receipt data from raw OCR transcripts."""
+    """Extract dollar-denominated receipt fields with explicit heuristic variants."""
 
-    def __init__(self, condition: str = "qlora") -> None:
-        self.condition = condition
+    def __init__(self, condition: str = "heuristic_items") -> None:
+        aliases = {
+            "heuristic_minimal": "minimal",
+            "heuristic_totals": "totals",
+            "heuristic_items": "items",
+            "zero_shot": "minimal",
+            "few_shot": "totals",
+            "qlora": "items",
+        }
+        if condition not in aliases:
+            raise ValueError(f"Unknown extraction condition: {condition}")
+        self.condition = aliases[condition]
 
     def extract(self, ocr_text: str) -> tuple[ReceiptSchema | None, bool, str]:
-        """Extract structured receipt from OCR text, returning (schema, is_valid, raw_output)."""
+        """Return a validated schema, validity flag, and raw heuristic JSON.
+
+        Missing dates remain null; a missing labeled total fails schema validation.
+        No total is inferred from tendered cash, change, or the largest price.
+        """
         lines = [line.strip() for line in ocr_text.splitlines() if line.strip()]
-        merchant = lines[0].title() if lines else "Unknown Vendor"
-
-        # Find date
+        merchant = lines[0].title() if lines else ""
         date_match = re.search(r"\b(\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/]\d{2}[-/]\d{4})\b", ocr_text)
-        date = date_match.group(1).replace("/", "-") if date_match else "2026-01-01"
-
-        # Find amounts
-        amounts = re.findall(r"\$\s*(\d+\.\d{2})", ocr_text)
-        float_amounts = [float(a) for a in amounts]
-
-        total = max(float_amounts) if float_amounts else 0.0
-        tax = 0.0
-        tax_match = re.search(r"TAX\s*.*?\$?\s*(\d+\.\d{2})", ocr_text, re.IGNORECASE)
-        if tax_match:
-            tax = float(tax_match.group(1))
-
-        subtotal = total - tax if total > tax else total
-
-        # In zero-shot baseline without fine-tuning, formatting can have minor quirks
-        if self.condition == "zero_shot":
-            raw_json = (
-                f'{{\n  "merchant_name": "{merchant}",\n'
-                f'  "transaction_date": "{date}",\n'
-                f'  "total": {total},\n'
-                f'  "currency": "USD"\n}}'
-            )
-        elif self.condition == "few_shot":
-            raw_json = (
-                f'{{\n  "merchant_name": "{merchant}",\n'
-                f'  "transaction_date": "{date}",\n'
-                f'  "currency": "USD",\n'
-                f'  "subtotal": {subtotal:.2f},\n'
-                f'  "tax": {tax:.2f},\n'
-                f'  "total": {total:.2f}\n}}'
-            )
-        else:  # qlora fine-tuned condition: full schema with line items
+        date = date_match.group(1) if date_match else None
+        total_match = re.search(
+            r"^\s*(?:GRAND\s+)?TOTAL(?:\s+(?:AMOUNT|DUE|SALE))?\s*:?\s*\$?\s*(\d+\.\d{2})",
+            ocr_text,
+            re.IGNORECASE | re.MULTILINE,
+        )
+        total = float(total_match.group(1)) if total_match else None
+        tax_match = re.search(
+            r"^\s*TAX\b[^\n]*?\$\s*(\d+\.\d{2})\s*$",
+            ocr_text,
+            re.IGNORECASE | re.MULTILINE,
+        )
+        tax = float(tax_match.group(1)) if tax_match else None
+        subtotal_match = re.search(
+            r"^\s*SUBTOTAL\s*:?\s*\$?\s*(\d+\.\d{2})",
+            ocr_text,
+            re.IGNORECASE | re.MULTILINE,
+        )
+        subtotal = float(subtotal_match.group(1)) if subtotal_match else None
+        fields: dict[str, object] = {
+            "merchant_name": merchant,
+            "transaction_date": date,
+            "total": total,
+            "currency": "USD",
+        }
+        if self.condition in {"totals", "items"}:
+            fields.update(subtotal=subtotal, tax=tax)
+        if self.condition == "items":
             items = []
-            for line in lines:
-                m = re.search(r"^(.*?)\s+\$?\s*(\d+\.\d{2})$", line)
-                if m and not any(kw in line.upper() for kw in ["TOTAL", "SUBTOTAL", "TAX"]):
-                    desc = m.group(1).strip()
-                    price = float(m.group(2))
-                    items.append(ReceiptItem(description=desc.title(), quantity=1, price=price))
-
-            schema_obj = ReceiptSchema(
-                merchant_name=merchant,
-                transaction_date=date,
-                currency="USD",
-                subtotal=subtotal,
-                tax=tax,
-                total=total,
-                line_items=items,
-            )
-            raw_json = schema_obj.model_dump_json(indent=2)
-
+            for line in lines[1:]:
+                match = re.search(r"^(.*?)\s+\$\s*(\d+\.\d{2})$", line)
+                if match and not re.match(
+                    r"^(?:GRAND\s+)?(?:TOTAL|SUBTOTAL|TAX|CASH|CHANGE|TENDER|PAID)\b",
+                    line,
+                    re.IGNORECASE,
+                ):
+                    description = match.group(1).strip()
+                    quantity_match = re.match(r"^(\d+)\s+(.+)$", description)
+                    quantity = int(quantity_match.group(1)) if quantity_match else 1
+                    if quantity_match:
+                        description = quantity_match.group(2)
+                    items.append(
+                        {
+                            "description": description.title(),
+                            "quantity": quantity,
+                            "price": float(match.group(2)),
+                        }
+                    )
+            fields["line_items"] = items
+        raw_json = json.dumps(fields, ensure_ascii=False)
         schema, is_valid, _ = parse_and_validate_receipt_json(raw_json)
         return schema, is_valid, raw_json

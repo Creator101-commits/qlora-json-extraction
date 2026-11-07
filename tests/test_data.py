@@ -15,7 +15,7 @@ def test_load_cord_dataset() -> None:
     assert "test" in splits
 
     for doc in docs:
-        assert doc.doc_id.startswith("cord_")
+        assert doc.doc_id.startswith("synthetic_")
         assert len(doc.ocr_text) > 20
         assert doc.ground_truth.total > 0.0
         assert len(doc.ground_truth.merchant_name) > 0

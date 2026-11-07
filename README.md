@@ -2,7 +2,7 @@
 
 # QLoRA JSON Extraction
 
-> Supervised 4-bit QLoRA fine-tuning for schema-valid receipt information extraction from noisy OCR.
+> CPU receipt-extraction heuristics and a separate CUDA QLoRA pilot for native CORD JSON.
 
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Creator101-commits/qlora-json-extraction?include_prereleases)
 ![GitHub last commit](https://img.shields.io/github/last-commit/Creator101-commits/qlora-json-extraction)
@@ -10,7 +10,7 @@
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/Creator101-commits/qlora-json-extraction)
 ![GitHub](https://img.shields.io/github/license/Creator101-commits/qlora-json-extraction)
 
-A reproducible study comparing zero-shot prompting, few-shot in-context learning, and 4-bit Quantized Low-Rank Adaptation (QLoRA) for extracting strict, schema-valid JSON receipt records from noisy CORD OCR transcripts. Evaluates JSON parse reliability, Pydantic schema validation, field-level exact match, line-item F1 scores, hallucination rates, and parameter efficiency.
+The CPU CLI runs deterministic regex heuristics on five hand-written synthetic receipts. It does not load an LLM, prompts, quantized weights, or a trained adapter. The separate Kaggle script trains TinyLlama with NF4 LoRA on actual CORD OCR words and native `gt_parse` targets. This native target is different from the local `ReceiptSchema`; adapter inference and a fair prompted-versus-fine-tuned benchmark remain unimplemented.
 
 ## Table of Contents
 
@@ -25,15 +25,15 @@ A reproducible study comparing zero-shot prompting, few-shot in-context learning
 
 ## Features
 
-- **Strict Schema Enforcement**: Pydantic v2 schemas validating vendor name, transaction date, subtotal, tax, grand total, and itemized lines.
-- **Robust Error Recovery**: Heuristic JSON repair pipeline that balances unclosed brackets and strips markdown fences.
-- **4-Bit QLoRA Fine-Tuning**: Parameter-efficient adaptation updating under 1.5% of parameters with NF4 base quantization.
-- **Granular Field Evaluation**: Per-field exact match, line-item F1, hallucination tracking, and omission penalties.
-- **Dual Execution Modes**: Fast CPU smoke verification for local development plus Kaggle GPU batch training (`kaggle kernels push`).
+- Receipt parsing with forbidden-key checks, finite numeric values, canonical calendar dates, and nullable missing dates.
+- Conservative JSON repair that respects quoted strings and bracket nesting.
+- Exact normalized merchant scoring and line-item multiset matching including quantity and price.
+- A NumPy LoRA algebra demonstration, separate from GPU training.
+- A CUDA-only Kaggle training pilot with prompt loss masking, validation checkpoint selection, complete target sequences, exact OCR duplicate filtering, and a run manifest. Near-duplicate auditing remains required.
 
 ## Quickstart
 
-Run a benchmark comparison across zero-shot, few-shot, and QLoRA conditions:
+Run a benchmark comparison across three heuristic variants:
 
 ```bash
 uv run qlora-extract compare
@@ -42,7 +42,7 @@ uv run qlora-extract compare
 Extract structured JSON from any OCR transcript file:
 
 ```bash
-uv run qlora-extract extract path/to/ocr_receipt.txt --condition qlora
+uv run qlora-extract extract path/to/ocr_receipt.txt --condition heuristic_items
 ```
 
 ## Installation
@@ -78,10 +78,10 @@ uv run qlora-extract version
 
 ### 2. Extract from OCR Text
 ```bash
-uv run qlora-extract extract sample_receipt.txt --condition qlora
+uv run qlora-extract extract sample_receipt.txt --condition heuristic_items
 ```
 
-Available conditions: `zero_shot`, `few_shot`, `qlora`.
+Conditions: `heuristic_minimal`, `heuristic_totals`, `heuristic_items`. Legacy identifiers `zero_shot`, `few_shot`, and `qlora` remain aliases for these regex variants; they do not select models.
 
 ### 3. Benchmark Comparison
 ```bash
@@ -95,11 +95,9 @@ uv run qlora-extract report --output artifacts/qlora_benchmark_report.md
 
 ## Benchmark Results
 
-| Condition | Parse Rate | Schema Valid | Merchant EM | Total EM | Line Item F1 | Macro Field F1 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `Zero-Shot Prompting` | 100.0% | 100.0% | 100.0% | 100.0% | 0.0% | 75.0% |
-| `Few-Shot Prompting` | 100.0% | 100.0% | 100.0% | 100.0% | 0.0% | 75.0% |
-| `4-Bit QLoRA SFT` | 100.0% | 100.0% | 100.0% | 100.0% | 100.0% | 100.0% |
+No real CORD test or QLoRA inference accuracy is established. `compare` measures only two synthetic test receipts. Prior claimed QLoRA, VRAM, and learning-curve results were unsupported and have been removed. Raw JSON parsing and schema validity are distinct; evaluation accepts separate parse flags when raw generations are available. The four-component macro score averages merchant match, date match, total match, and line-item F1; it is not an exhaustive field-level F1.
+
+The CUDA runner uses [CORD v2](https://huggingface.co/datasets/naver-clova-ix/cord-v2), extracting input text only from `valid_line[].words[].text` and output labels only from `gt_parse`. It loads train and validation partitions, never test. Its exported adapter is not wired to the CPU CLI. See [QLoRA](https://arxiv.org/abs/2305.14314) for the method; the paper does not establish results for this repository.
 
 ## Development and Testing
 
@@ -117,3 +115,7 @@ uv run mypy src
 ## License
 
 Distributed under the MIT License. See [LICENSE](./LICENSE) for details.
+
+## Reproducing the figure
+
+`image.png` contains only Matplotlib graphs. Run `PYTHONPATH=src python scripts/render_figure.py` in a Python environment containing the project dependencies and Matplotlib. The plotting environment is separate from the core runtime when Matplotlib is absent. `scripts/figure-data.json` stores the plotted measurements or analytical inputs. Captions distinguish real packaged datasets, synthetic fixtures, analytical calculations, and local timings. No GPU performance is inferred from CPU demonstrations.

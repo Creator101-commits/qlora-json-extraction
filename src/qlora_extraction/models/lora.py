@@ -18,6 +18,8 @@ class LoRALinear:
         r: int = 16,
         lora_alpha: int = 32,
     ) -> None:
+        if min(in_features, out_features, r) <= 0:
+            raise ValueError("Layer dimensions and adapter rank must be positive.")
         self.in_features = in_features
         self.out_features = out_features
         self.r = r

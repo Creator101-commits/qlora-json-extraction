@@ -31,6 +31,10 @@ def format_zero_shot_prompt(ocr_text: str) -> str:
 
 def format_few_shot_prompt(ocr_text: str, examples: list[ReceiptDocument]) -> str:
     """Few-shot extraction prompt with demonstrated OCR-to-JSON pairs."""
+    if any(ex.split != "train" for ex in examples):
+        raise ValueError("Few-shot examples must come from training only.")
+    if any(ex.ocr_text.strip() == ocr_text.strip() for ex in examples):
+        raise ValueError("Target document must not be a few-shot example.")
     blocks: list[str] = [
         "Extract receipt information from OCR text into valid JSON matching target schema.\n"
     ]
@@ -44,7 +48,7 @@ def format_few_shot_prompt(ocr_text: str, examples: list[ReceiptDocument]) -> st
 
 
 def format_qlora_instruction_prompt(ocr_text: str) -> str:
-    """Supervised fine-tuning instruction prompt format for Llama-3 / Mistral chat templates."""
+    """Legacy Llama-3 prompt; Kaggle uses the tokenizer-native chat template."""
     return (
         "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
         "You are an expert OCR receipt information extraction model. "

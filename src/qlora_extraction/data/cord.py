@@ -1,4 +1,4 @@
-"""Curated CORD receipt benchmark records with raw OCR text and canonical schemas."""
+"""Hand-written synthetic receipt fixtures, not records from the CORD dataset."""
 
 from __future__ import annotations
 
@@ -18,10 +18,10 @@ class ReceiptDocument:
 
 
 def load_cord_dataset() -> list[ReceiptDocument]:
-    """Load curated CORD benchmark receipts across train, val, and test splits."""
+    """Load five synthetic demo receipts across train, val, and test splits."""
     return [
         ReceiptDocument(
-            doc_id="cord_001",
+            doc_id="synthetic_001",
             ocr_text=(
                 "STARBUCKS COFFEE #1042\n"
                 "123 PIKE STREET, SEATTLE WA\n"
@@ -48,7 +48,7 @@ def load_cord_dataset() -> list[ReceiptDocument]:
             split="train",
         ),
         ReceiptDocument(
-            doc_id="cord_002",
+            doc_id="synthetic_002",
             ocr_text=(
                 "TARGET STORE T-0891\n"
                 "MINNEAPOLIS, MN\n"
@@ -74,7 +74,7 @@ def load_cord_dataset() -> list[ReceiptDocument]:
             split="train",
         ),
         ReceiptDocument(
-            doc_id="cord_003",
+            doc_id="synthetic_003",
             ocr_text=(
                 "WHOLE FOODS MARKET\n"
                 "AUSTIN TX\n"
@@ -103,7 +103,7 @@ def load_cord_dataset() -> list[ReceiptDocument]:
             split="val",
         ),
         ReceiptDocument(
-            doc_id="cord_004",
+            doc_id="synthetic_004",
             ocr_text=(
                 "CHIPOTLE MEXICAN GRILL #231\n"
                 "NEW YORK, NY\n"
@@ -131,7 +131,7 @@ def load_cord_dataset() -> list[ReceiptDocument]:
             split="test",
         ),
         ReceiptDocument(
-            doc_id="cord_005",
+            doc_id="synthetic_005",
             ocr_text=(
                 "SHELL GAS STATION #4910\n"
                 "HOUSTON, TX\n"

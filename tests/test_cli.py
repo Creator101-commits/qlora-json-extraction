@@ -37,9 +37,9 @@ def test_cli_extract_file_not_found(tmp_path: Path) -> None:
 def test_cli_compare() -> None:
     result = runner.invoke(app, ["compare"])
     assert result.exit_code == 0
-    assert "CORD Receipt Structured Extraction Benchmark" in result.output
-    assert "Zero-Shot Prompting" in result.output
-    assert "4-Bit QLoRA SFT" in result.output
+    assert "Synthetic Receipt Heuristic Demonstration" in result.output
+    assert "Heuristic minimal" in result.output
+    assert "Heuristic line items" in result.output
 
 
 def test_cli_report(tmp_path: Path) -> None:
@@ -48,10 +48,10 @@ def test_cli_report(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert out.exists()
     content = out.read_text(encoding="utf-8")
-    assert "QLoRA Fine-Tuning for Structured JSON Extraction Benchmark Report" in content
+    assert "Receipt Heuristic Demonstration Report" in content
 
 
 def test_cli_report_stdout() -> None:
     result = runner.invoke(app, ["report"])
     assert result.exit_code == 0
-    assert "QLoRA Fine-Tuning for Structured JSON Extraction Benchmark Report" in result.output
+    assert "Receipt Heuristic Demonstration Report" in result.output
