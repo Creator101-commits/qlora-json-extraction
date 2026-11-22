@@ -62,6 +62,9 @@ def paired_bootstrap(
     """
     rng = np.random.default_rng(seed)
     n_docs = len(next(iter(stats_by_condition.values())))
+    if n_docs == 0:
+        return {"n_boot": n_boot, "seed": seed, "ci_alpha": CI_ALPHA,
+                "conditions": {}, "diffs": {}}
     for stats in stats_by_condition.values():
         if len(stats) != n_docs:
             raise ValueError("all conditions must share the same document order")
