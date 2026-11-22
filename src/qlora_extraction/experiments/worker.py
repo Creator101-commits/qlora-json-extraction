@@ -85,6 +85,7 @@ def run_job(spec: dict[str, Any], work_dir: Path) -> dict[str, Any]:
             "n_trainable_params": result.n_trainable_params,
             "n_total_params": result.n_total_params,
             "adapter_bytes": result.adapter_bytes,
+            "batch_config": result.batch_config,
             "history": result.history,
         }
         (job_dir / "train_result.json").write_text(

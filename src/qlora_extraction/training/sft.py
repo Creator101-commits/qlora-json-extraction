@@ -73,6 +73,7 @@ class SftResult:
     n_trainable_params: int = 0
     n_total_params: int = 0
     adapter_bytes: int = 0
+    batch_config: dict[str, int] = field(default_factory=dict)
 
 
 def build_sft_example(
@@ -273,4 +274,9 @@ def train_qlora_sft(
         n_trainable_params=n_trainable,
         n_total_params=n_total,
         adapter_bytes=adapter_bytes,
+        batch_config={
+            "effective_batch_size": cfg.effective_batch_size,
+            "per_device_batch_size": cfg.per_device_batch_size,
+            "gradient_accumulation_steps": grad_accum,
+        },
     )
