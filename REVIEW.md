@@ -1,18 +1,35 @@
 # Review and verification
 
-Scope: source modules, CLI behavior, evaluation mathematics, project claims, Kaggle scripts where present, and README figures.
-
-Separated regex heuristics from QLoRA claims, corrected native CORD OCR inputs, exact scalar and multiset line matching, JSON repair, strict dates and numbers, and missing-value handling.
+Scope: source modules, schema and leakage controls, evaluation mathematics,
+Kaggle scripts, and README claims.
 
 ## Verified locally
 
-- 30 tests passed with the repository's existing Python environment.
-- `ruff check .` passed, including tests, figure source, and Kaggle scripts.
-- `mypy src` passed.
-- The README image was rendered from code using Matplotlib and visually inspected. Its inputs/results and a source fingerprint are in `scripts/figure-data.json`.
+- 55 tests passed on the locked environment (Python 3.12/3.13 CI matrix).
+- `ruff check .` passed, including Kaggle scripts.
+- `mypy src` passed (23 source files).
+
+## Architecture notes
+
+- The retired regex-heuristic path and its synthetic receipts are gone;
+  the only remaining CLI command is `version`.
+- `CordParseV1` was frozen from train-only key inventory; keys observed
+  only in validation or test are reported as schema gaps, not added.
+- `menu` is canonicalized to a list whether CORD stores it as dict or list.
+- Dedup audit uses normalized-OCR sha256 plus char_wb 5-gram Jaccard >= 0.8
+  in both directions (test vs train+val, val vs train); official splits
+  stay primary and secondary metrics exclude near-duplicates.
+- The runner writes inventory and dedup artifacts plus
+  `analysis_plan.json` before any test target is read, and
+  `ordering_ok` requires `card_write_epoch < first_test_read_epoch`.
+- QLoRA loss masks prompt tokens; only assistant target tokens plus EOS
+  carry loss. Over-length sequences are dropped and counted, never
+  truncated.
 
 ## Limits
 
-GPU training targets native CORD gt_parse, not the CPU ReceiptSchema. On November 6, 2026, the revised Kaggle script completed 50 CUDA training steps using 768 training and 89 validation examples, and saved an adapter and run manifest. The selected validation loss was approximately 0.0803. No test accuracy was measured. Adapter inference, near-duplicate audit, and a fair prompted-versus-trained test benchmark remain unimplemented.
-
-Kaggle access was unavailable during the initial review and restored for the later pilot. New CI workflows are configuration changes; their hosted execution must be checked after publication.
+GPU paths (QLoRA training, batched generation) are exercised only inside
+the Kaggle kernels; local tests inject fake generators. No test metrics
+exist until the Kaggle run completes. CORD-v2 is Indonesian receipts with
+masked store information and a test set of 100 documents, so bootstrap
+intervals are wide.

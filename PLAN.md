@@ -332,61 +332,61 @@ DPO is permitted only after SFT error analysis identifies recurring generation f
 
 ## Build phases
 
-### Phase 1: Project foundation (Status: Completed)
+### Phase 1: Project foundation (Status: Implemented; CPU verification green)
 
 - **Work:** Create the package, locked dependencies, configuration system, CLI, schema models, CPU-safe tests, GPU checks, linting, typing, and CI.
 - **Verify:** Run schema fixtures, CLI help, test suite, Ruff, mypy, and a clear no-GPU failure path.
 - **Complete when:** Local tooling works without downloading a base model and CI passes.
 
-### Phase 2: Data and output-schema audit (Status: Completed)
+### Phase 2: Data and output-schema audit (Status: Implemented; CordParseV1 frozen from train keys)
 
 - **Work:** Pin the CORD revision, inspect its actual fields, measure target-field coverage, define the v1 receipt JSON schema, and document licensing and limitations.
 - **Verify:** Parse representative annotations and ensure every chosen output field is consistently supported.
 - **Complete when:** The schema and source-data contract are frozen before prompt generation.
 
-### Phase 3: Preparation and leakage controls (Status: Completed)
+### Phase 3: Preparation and leakage controls (Status: Implemented; dedup audit and plan ordering in place)
 
 - **Work:** Reconstruct OCR text, convert annotations to canonical JSON, detect duplicates, create grouped partitions, build prompts, and write manifests.
 - **Verify:** Test deterministic hashes, split disjointness, schema-valid targets, and document/layout isolation.
 - **Complete when:** Every example traces to one source document and test records are inaccessible to training preparation.
 
-### Phase 4: Evaluation and prompted baselines (Status: Completed)
+### Phase 4: Evaluation and prompted baselines (Status: Implemented; awaiting Kaggle run)
 
 - **Work:** Implement strict parsing, schema validation, normalization, zero-shot/few-shot inference, structural metrics, field metrics, hallucination, omission, and latency recording.
 - **Verify:** Use hand-authored fixtures covering valid, malformed, missing, extra, and incorrectly typed fields.
 - **Complete when:** Frozen-model baselines can be evaluated before any fine-tuning.
 
-### Phase 5: QLoRA training pipeline (Status: Completed)
+### Phase 5: QLoRA training pipeline (Status: Implemented; awaiting Kaggle run)
 
 - **Work:** Implement pinned model/tokenizer loading, 4-bit quantization, LoRA adapters, target masking, batching, checkpointing, resume behavior, and experiment tracking.
 - **Verify:** Overfit a tiny fixture, reload the adapter, and reproduce its outputs; confirm CPU tests do not require CUDA.
 - **Complete when:** One configured GPU command produces a valid reusable adapter and training manifest.
 
-### Phase 6: Supervised fine-tuning study (Status: Completed)
+### Phase 6: Supervised fine-tuning study (Status: Implemented; budget curve defined, awaiting Kaggle run)
 
 - **Work:** Run bounded training-size and adapter-setting experiments on train/validation data, track loss and compute, and choose one final SFT configuration.
 - **Verify:** Confirm checkpoint selection never uses test documents and every run records model/data revisions and seeds.
 - **Complete when:** The final QLoRA adapter and decoding settings are frozen.
 
-### Phase 7: Synthetic-data ablation (Status: Completed)
+### Phase 7: Synthetic-data ablation (Status: Not done; out of scope for v1 per settled brief)
 
 - **Work:** Generate and review training-only synthetic examples, then compare real-only with real-plus-synthetic conditions at matched real-data and training budgets.
 - **Verify:** Measure field-level gains, hallucination changes, provenance completeness, and contamination controls.
 - **Complete when:** Synthetic-data effects are reported separately and cannot influence the real test labels.
 
-### Phase 8: Frozen test evaluation (Status: Completed)
+### Phase 8: Frozen test evaluation (Status: Implemented; awaiting Kaggle run)
 
 - **Work:** Evaluate prompted baselines and selected QLoRA models on held-out documents using frozen parsing, normalization, schema, and metrics.
 - **Verify:** Calculate paired document-bootstrap intervals and preserve raw outputs, parsed outputs, errors, and configuration hashes.
 - **Complete when:** Final results distinguish JSON validity from actual field correctness.
 
-### Phase 9: Optional preference tuning (Status: Completed)
+### Phase 9: Optional preference tuning (Status: Not done; out of scope for v1 per settled brief)
 
 - **Work:** Only if justified, build reviewed chosen/rejected pairs from development failures and run a small DPO experiment on top of SFT.
 - **Verify:** Check pair quality, partition isolation, and evaluation under the same frozen protocol.
 - **Complete when:** DPO is reported as an optional comparison, including a neutral or negative result when applicable.
 
-### Phase 10: Documentation and release (Status: Completed)
+### Phase 10: Documentation and release (Status: In progress; results pending Kaggle run)
 
 - **Work:** Complete the data card, schema documentation, model card, research report, README, GPU reproduction steps, and limitations.
 - **Verify:** Run clean local setup, CPU tests, linting, typing, and the documented GPU smoke workflow.

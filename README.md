@@ -1,121 +1,127 @@
-![Banner](./image.png)
-
 # QLoRA JSON Extraction
 
-> CPU receipt-extraction heuristics and a separate CUDA QLoRA pilot for native CORD JSON.
-
-![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Creator101-commits/qlora-json-extraction?include_prereleases)
-![GitHub last commit](https://img.shields.io/github/last-commit/Creator101-commits/qlora-json-extraction)
-![GitHub issues](https://img.shields.io/github/issues-raw/Creator101-commits/qlora-json-extraction)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/Creator101-commits/qlora-json-extraction)
-![GitHub](https://img.shields.io/github/license/Creator101-commits/qlora-json-extraction)
-
-The CPU CLI runs deterministic regex heuristics on five hand-written synthetic receipts. It does not load an LLM, prompts, quantized weights, or a trained adapter. The separate Kaggle script trains TinyLlama with NF4 LoRA on actual CORD OCR words and native `gt_parse` targets. This native target is different from the local `ReceiptSchema`; adapter inference and a fair prompted-versus-fine-tuned benchmark remain unimplemented.
+A reproducible benchmark comparing prompted baselines with 4-bit QLoRA
+supervised fine-tuning for extracting schema-valid receipt JSON from noisy
+OCR text on the CORD-v2 dataset.
 
 ## Table of Contents
 
-- [Features](#features)
-- [Quickstart](#quickstart)
+- [Overview](#overview)
 - [Installation](#installation)
-- [Kaggle GPU Execution](#kaggle-gpu-execution)
-- [CLI Reference](#cli-reference)
-- [Benchmark Results](#benchmark-results)
+- [Benchmark Design](#benchmark-design)
+- [Metrics](#metrics)
+- [Kaggle Execution](#kaggle-execution)
 - [Development and Testing](#development-and-testing)
+- [Results](#results)
 - [License](#license)
 
-## Features
+## Overview
 
-- Receipt parsing with forbidden-key checks, finite numeric values, canonical calendar dates, and nullable missing dates.
-- Conservative JSON repair that respects quoted strings and bracket nesting.
-- Exact normalized merchant scoring and line-item multiset matching including quantity and price.
-- A NumPy LoRA algebra demonstration, separate from GPU training.
-- A CUDA-only Kaggle training pilot with prompt loss masking, validation checkpoint selection, complete target sequences, exact OCR duplicate filtering, and a run manifest. Near-duplicate auditing remains required.
+The benchmark asks whether supervised QLoRA improves structured extraction
+over zero-shot and few-shot prompting. All conditions share the same base
+model (`Qwen/Qwen2.5-3B-Instruct`, revision-pinned, Qwen Research license),
+the same chat-template prompt family, greedy decoding, and the same
+4-bit NF4 quantized base, so differences come from fine-tuning rather than
+quantization.
 
-## Quickstart
+Input is OCR text reconstructed from CORD-v2 `valid_line` word boxes in
+reading order; targets are canonical `gt_parse` JSON validated against the
+versioned `CordParseV1` schema. Official splits are train 800, validation
+100, test 100. Exact and near-duplicate documents are audited before any
+split-dependent choice; test documents never drive prompts, demonstrations,
+token limits, or checkpoint selection.
 
-Run a benchmark comparison across three heuristic variants:
-
-```bash
-uv run qlora-extract compare
-```
-
-Extract structured JSON from any OCR transcript file:
-
-```bash
-uv run qlora-extract extract path/to/ocr_receipt.txt --condition heuristic_items
-```
+The earlier regex-heuristic path on five hand-written synthetic receipts
+has been retired; it was unrelated to the real task.
 
 ## Installation
 
-Ensure Python 3.12+ and `uv` are installed:
+Requires Python 3.12-3.13 and `uv`:
 
 ```bash
-git clone https://github.com/Creator101-commits/qlora-json-extraction.git
-cd qlora-json-extraction
-uv sync
+uv sync                 # CPU-light core only
+uv sync --extra gpu     # adds torch, transformers, peft, bitsandbytes
 ```
 
-## Kaggle GPU Execution
+## Benchmark Design
 
-For full 4-bit QLoRA fine-tuning with PEFT and BitsAndBytes on a GPU without straining local hardware, push the included Kaggle kernel:
+Conditions:
+
+1. `zero_shot`: chat-template instruction with the minified `CordParseV1`
+   JSON Schema and the OCR text.
+2. `few_shot`: the zero-shot prompt plus 3 fixed training demonstrations,
+   selected greedily by schema-key coverage, tie-broken by shorter OCR then
+   lower index, from train data only.
+3. `qlora_sft`: QLoRA on the same zero-shot prompt (prompt tokens masked
+   from the loss). NF4 4-bit with double quantization, fp16 compute, LoRA
+   r=16 alpha=32 dropout=0.05 on all linear projections, lr 2e-4 cosine
+   with 3% warmup, effective batch 16, grad clip 1.0, up to 5 epochs with
+   patience 1 on validation loss. Seeds 0, 1, 2.
+4. Budget curve: QLoRA at 200 and 400 training receipts (nested subsets,
+   seed 0) plus the 800-receipt seed-0 run, evaluated on validation only.
+
+`max_new_tokens` is `ceil(1.25 x p99)` of train target token length;
+`max_seq_len` is the p99 of train prompt+target length and over-length
+sequences are dropped and counted, never truncated.
+
+Parsing takes the first balanced top-level JSON object; non-whitespace text
+outside it counts as extra commentary and a missing or unbalanced object is
+a parse failure.
+
+## Metrics
+
+- Structural: JSON parse rate, `CordParseV1` schema-valid rate,
+  forbidden-key rate, extra-commentary rate.
+- Semantic: Donut-style field-level micro precision/recall/F1 over
+  (key path, normalized value) multisets, nTED tree-edit-distance accuracy
+  via `zss`, document-level exact match, per-top-level-group F1
+  (menu, sub_total, total), hallucination and omission rates.
+- Uncertainty: document-level paired bootstrap, 2000 resamples, seed 0,
+  percentile 95% CIs; QLoRA reports the mean and range over 3 seeds.
+- Operational: train time, peak GPU memory, trainable vs total params,
+  adapter size, generation latency and token counts.
+- Slices: OCR length tertiles (train cut points) and near-duplicate vs
+  novel test documents.
+
+Normalization (frozen before test): strip whitespace, collapse internal
+spaces; case and digits are untouched.
+
+The test set is evaluated exactly once after configs and checkpoints are
+frozen; `analysis_plan.json` and `manifest.json` record
+`card_write_epoch < first_test_read_epoch` as `ordering_ok`.
+
+## Kaggle Execution
+
+The full benchmark runs on a private Kaggle GPU T4 kernel:
 
 ```bash
-kaggle kernels push -p kaggle
+scripts/kaggle_run.sh          # full run
+scripts/kaggle_run.sh --smoke  # reduced diagnostic run
 ```
 
-Check job execution status:
-
-```bash
-kaggle kernels status sreeharshak101/qlora-receipt-json-extraction
-```
-
-## CLI Reference
-
-### 1. Version Check
-```bash
-uv run qlora-extract version
-```
-
-### 2. Extract from OCR Text
-```bash
-uv run qlora-extract extract sample_receipt.txt --condition heuristic_items
-```
-
-Conditions: `heuristic_minimal`, `heuristic_totals`, `heuristic_items`. Legacy identifiers `zero_shot`, `few_shot`, and `qlora` remain aliases for these regex variants; they do not select models.
-
-### 3. Benchmark Comparison
-```bash
-uv run qlora-extract compare
-```
-
-### 4. Markdown Report
-```bash
-uv run qlora-extract report --output artifacts/qlora_benchmark_report.md
-```
-
-## Benchmark Results
-
-No real CORD test or QLoRA inference accuracy is established. `compare` measures only two synthetic test receipts. Prior claimed QLoRA, VRAM, and learning-curve results were unsupported and have been removed. Raw JSON parsing and schema validity are distinct; evaluation accepts separate parse flags when raw generations are available. The four-component macro score averages merchant match, date match, total match, and line-item F1; it is not an exhaustive field-level F1.
-
-The CUDA runner uses [CORD v2](https://huggingface.co/datasets/naver-clova-ix/cord-v2), extracting input text only from `valid_line[].words[].text` and output labels only from `gt_parse`. It loads train and validation partitions, never test. Its exported adapter is not wired to the CPU CLI. See [QLoRA](https://arxiv.org/abs/2305.14314) for the method; the paper does not establish results for this repository.
+Each condition/seed runs in its own subprocess with resource logging.
+Kernel outputs land in `artifacts/kaggle/<timestamp>/`. The smoke kernel
+uses about 16 train / 8 validation / 8 test docs, one epoch, and all
+conditions; its outputs are diagnostics only and are never committed as
+results.
 
 ## Development and Testing
 
 ```bash
-# Run pytest with branch coverage
 uv run pytest
-
-# Run Ruff linter
 uv run ruff check .
-
-# Run static type checker
 uv run mypy src
 ```
 
+Tests never import the `gpu` extra and never touch the network; they use
+tiny synthetic fixtures and injected fake generators.
+
+## Results
+
+Pending the Kaggle run; `results/` will hold unedited kernel output once
+the full benchmark completes.
+
 ## License
 
-Distributed under the MIT License. See [LICENSE](./LICENSE) for details.
-
-## Reproducing the figure
-
-`image.png` contains only Matplotlib graphs. Run `PYTHONPATH=src python scripts/render_figure.py` in a Python environment containing the project dependencies and Matplotlib. The plotting environment is separate from the core runtime when Matplotlib is absent. `scripts/figure-data.json` stores the plotted measurements or analytical inputs. Captions distinguish real packaged datasets, synthetic fixtures, analytical calculations, and local timings. No GPU performance is inferred from CPU demonstrations.
+MIT. See [LICENSE](./LICENSE). CORD-v2 is CC BY 4.0; Qwen2.5-3B-Instruct
+weights are Qwen Research licensed and adapters are not published.

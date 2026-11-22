@@ -19,9 +19,9 @@ uv run mypy src
 
 ## Key conventions
 
-- Group exact and near-duplicate documents before splitting; test documents cannot drive prompts, synthetic data, or checkpoint selection.
+- Group exact and near-duplicate documents before splitting; test documents cannot drive prompts, demonstrations, token limits, or checkpoint selection.
 - Validate every output with the versioned Pydantic/JSON Schema and score canonical parsed values.
-- Compare real-only and synthetic-data conditions at matched real-data budgets; keep adapters, checkpoints, and raw data out of Git.
+- v1 scope is real CORD data only: the synthetic-data ablation and DPO phases are out of scope per the settled brief.
 
 ## Rules
 
