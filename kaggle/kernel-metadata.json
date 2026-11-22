@@ -1,0 +1,16 @@
+{
+  "id": "sreeharshak101/qlora-json-extraction-benchmark",
+  "title": "QLoRA JSON Extraction Benchmark",
+  "code_file": "run_kaggle.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "dataset_sources": [
+    "sreeharshak101/qlora-json-extraction-src"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}
