@@ -94,11 +94,17 @@ def _p99(values: list[int]) -> int:
 def subsample_docs(
     docs: list[CordDocument], n: int, seed: int = 0
 ) -> list[CordDocument]:
-    """Deterministic seeded subsample preserving a stable doc order."""
+    """Deterministic seeded subsample preserving a stable doc order.
+
+    One permutation per ``(docs, seed)``; taking ``perm[:n]`` makes every
+    smaller subset nested inside every larger one (200 inside 400 inside
+    800), which the budget curve requires.
+    """
     if n >= len(docs):
         return list(docs)
     rng = np.random.default_rng(seed)
-    idx = np.sort(rng.choice(len(docs), size=n, replace=False))
+    perm = rng.permutation(len(docs))
+    idx = np.sort(perm[:n])
     return [docs[int(i)] for i in idx]
 
 
@@ -121,6 +127,19 @@ def prepare(
         train_docs = subsample_docs(train_docs, cfg.smoke_train)
         validation_docs = subsample_docs(validation_docs, cfg.smoke_val)
         test_docs = subsample_docs(test_docs, cfg.smoke_test)
+
+    # Train-schema gate: every training target must validate CordParseV1.
+    from qlora_extraction.schema import validate_cord_parse
+
+    invalid_ids = [
+        d.doc_id for d in train_docs if validate_cord_parse(d.get_target()) is None
+    ]
+    if invalid_ids:
+        shown = ", ".join(invalid_ids[:20])
+        raise ValueError(
+            f"{len(invalid_ids)} train targets fail CordParseV1: {shown}"
+            + (" ..." if len(invalid_ids) > 20 else "")
+        )
 
     # Data audit: train inventory defines the schema; val/test gaps reported.
     inventory = audit_inventories(train_docs, {"validation": validation_docs})
@@ -177,9 +196,10 @@ def prepare(
         "demonstrations": demonstrations_for_prompt(demos),
         "budget_rule": {
             "seed": 0,
-            "method": "numpy default_rng(0).choice prefix over train order",
+            "method": "numpy default_rng(0).permutation prefix over train order",
             "sizes": [cfg.main_budget, *cfg.budget_sizes],
         },
+        "train_schema_valid": len(train_docs),
         "seeds": list(cfg.seeds),
         "max_epochs": cfg.smoke_epochs if cfg.smoke else cfg.max_epochs,
         "max_new_tokens": max_new_tokens,
@@ -201,14 +221,31 @@ def prepare(
         "created_epoch_ns": _now_ns(),
         "card_write_epoch_ns": _now_ns(),
     }
+    # plan_sha256 proves both split kernels froze the identical plan; the
+    # volatile fields (epochs, timestamps) cannot differ between parts.
+    volatile = {"created_epoch_ns", "card_write_epoch_ns", "max_epochs"}
+    fp_obj = {k: v for k, v in plan.items() if k not in volatile}
+    plan["plan_sha256"] = hashlib.sha256(
+        json.dumps(fp_obj, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
     (out_dir / "analysis_plan.json").write_text(
         json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     return plan
 
 
-def job_specs(config: BenchmarkConfig, plan: dict[str, Any]) -> list[dict[str, Any]]:
-    """Declare every benchmark job; Kaggle runs each in its own subprocess."""
+# Job ownership for the two-kernel split: the weekly GPU quota cannot hold
+# the whole protocol in one run, so part A carries the prompted conditions,
+# the seed-0 adapter and the 200-doc budget point; part B carries the two
+# remaining seeds and the 400-doc point. Both parts share one frozen plan.
+PART_A_JOBS = frozenset({"zero_shot", "few_shot", "qlora_sft_seed0", "budget200"})
+PART_B_JOBS = frozenset({"qlora_sft_seed1", "qlora_sft_seed2", "budget400"})
+
+
+def job_specs(
+    config: BenchmarkConfig, plan: dict[str, Any], part: str = "all"
+) -> list[dict[str, Any]]:
+    """Declare benchmark jobs for one part; Kaggle runs each in a subprocess."""
     specs: list[dict[str, Any]] = [
         {"name": "zero_shot", "kind": "prompted", "condition": "zero_shot"},
         {"name": "few_shot", "kind": "prompted", "condition": "few_shot"},

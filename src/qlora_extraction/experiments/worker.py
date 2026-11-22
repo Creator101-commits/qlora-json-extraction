@@ -27,13 +27,12 @@ def _select_by_ids(docs: list[CordDocument], ids: list[str]) -> list[CordDocumen
 def _budget_subset(
     train_docs: list[CordDocument], budget: int, plan: dict[str, Any]
 ) -> list[CordDocument]:
-    """Nested seeded prefix subset: rng(0) permutation, first ``budget``."""
-    import numpy as np
+    """Nested seeded prefix subset shared with ``subsample_docs``."""
+    from qlora_extraction.experiments.runner import subsample_docs
 
-    n = min(budget, len(train_docs))
-    rng = np.random.default_rng(int(plan["budget_rule"]["seed"]))
-    order = rng.permutation(len(train_docs))
-    return [train_docs[int(order[i])] for i in range(n)]
+    return subsample_docs(
+        train_docs, min(budget, len(train_docs)), int(plan["budget_rule"]["seed"])
+    )
 
 
 def run_job(spec: dict[str, Any], work_dir: Path) -> dict[str, Any]:

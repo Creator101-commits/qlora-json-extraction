@@ -132,6 +132,25 @@ def test_run_benchmark_end_to_end(tmp_path: Path) -> None:
     assert all(d.target is not None for d in test)
 
 
+def test_prepare_rejects_schema_invalid_train_target(tmp_path: Path) -> None:
+    train = _make_docs("train", 10, "train")
+    bad = CordDocument("train:bad", "train", "OCR", '{"bogus_key": 1}')
+    train.append(bad)
+    val = _make_docs("validation", 5, "validation")
+    test = _make_docs("test", 5, "test")
+    with pytest.raises(ValueError, match="train:bad"):
+        prepare(tmp_path, train, val, test, FakeTokenizer(), BenchmarkConfig())  # type: ignore[arg-type]
+
+
+def test_prepare_records_train_schema_valid_count(tmp_path: Path) -> None:
+    train = _make_docs("train", 12, "train")
+    val = _make_docs("validation", 5, "validation")
+    test = _make_docs("test", 5, "test")
+    plan = prepare(tmp_path, train, val, test, FakeTokenizer(), BenchmarkConfig())  # type: ignore[arg-type]
+    assert plan["train_schema_valid"] == 12
+    assert plan["plan_sha256"]
+
+
 def test_max_tokens_derived_from_train_only(tmp_path: Path) -> None:
     # Test targets are enormous; the plan must still reflect train p99.
     train = _make_docs("train", 15, "train")
