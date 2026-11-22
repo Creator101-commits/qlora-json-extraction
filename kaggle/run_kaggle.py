@@ -127,6 +127,8 @@ def main() -> None:
 
     smoke = bool(os.environ.get("QLORA_SMOKE"))
     cfg = BenchmarkConfig(smoke=smoke)
+    # collect() records provenance from this env var.
+    os.environ["QLORA_GIT_SHA"] = sha
     BENCH.mkdir(parents=True, exist_ok=True)
 
     t_load = time.monotonic()
