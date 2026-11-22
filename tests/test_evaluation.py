@@ -112,10 +112,20 @@ def test_aggregate_scores_hand_computed() -> None:
 
 def test_nted_identical_and_changed_leaf() -> None:
     assert nted_score({"a": "1"}, {"a": "1"}) == 1.0
-    # {"a":"1"} tree: {} -> a -> "1" = 3 nodes; one leaf relabel -> dist 1
-    assert nted_score({"a": "2"}, {"a": "1"}) == pytest.approx(1 - 1 / 3)
-    # empty vs non-empty
-    assert nted_score({}, {"a": "1"}) < 1.0
+    # Donut nTED: empty->gt cost is key 1 + leaf len("1") 1 = 2; the leaf
+    # update "2"->"1" costs Levenshtein 1, so score = 1 - 1/2.
+    assert nted_score({"a": "2"}, {"a": "1"}) == pytest.approx(0.5)
+    assert nted_score({}, {"a": "1"}) == 0.0
+    # {"total": {}} normalizes to empty, so it scores like {}.
+    assert nted_score({"total": {}}, {"a": "1"}) == 0.0
+
+
+def test_nted_donut_hand_case() -> None:
+    gt = {"total": {"total_price": "12,000"}}
+    pred = {"total": {"total_price": "12,500"}}
+    # Denominator: total 1 + <subtree> 1 + total_price 1 + leaf 6 = 9;
+    # the only difference is a leaf update costing Levenshtein 1.
+    assert nted_score(pred, gt) == pytest.approx(1 - 1 / 9)
 
 
 def test_commentary_outside_object_flagged() -> None:
