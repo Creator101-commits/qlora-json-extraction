@@ -47,7 +47,10 @@ class SftConfig:
     learning_rate: float = 2e-4
     warmup_ratio: float = 0.03
     effective_batch_size: int = 16
-    per_device_batch_size: int = 8
+    # Micro-batch stays small: CE materializes [B, seq, 151936] logits, which
+    # OOMs a 14.5 GiB T4 at B=8 even for seq ~1700. Effective batch is kept
+    # by gradient accumulation.
+    per_device_batch_size: int = 2
     grad_clip: float = 1.0
     max_epochs: int = 5
     patience: int = 1

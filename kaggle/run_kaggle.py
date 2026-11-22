@@ -150,6 +150,9 @@ def main() -> None:
 
     specs_dir = BENCH / "specs"
     specs_dir.mkdir(parents=True, exist_ok=True)
+    # Reduce allocator fragmentation in the worker subprocesses; the QLoRA
+    # smoke OOM showed ~1 GiB reserved-but-unallocated at the failure point.
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     job_timings: dict[str, float] = {}
     for spec in job_specs(cfg, plan):
         spec_path = specs_dir / f"{spec['name']}.json"
