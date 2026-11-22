@@ -261,19 +261,28 @@ def job_specs(
                 "splits": ["validation", "test"],
             }
         )
-    if not config.smoke:
-        for budget in config.budget_sizes:
-            specs.append(
-                {
-                    "name": f"budget{budget}",
-                    "kind": "qlora",
-                    "condition": "qlora_sft",
-                    "seed": 0,
-                    "budget": budget,
-                    "splits": ["validation"],
-                }
-            )
-    return specs
+    for budget in config.budget_sizes:
+        specs.append(
+            {
+                "name": f"budget{budget}",
+                "kind": "qlora",
+                "condition": "qlora_sft",
+                "seed": 0,
+                "budget": budget,
+                "splits": ["validation"],
+            }
+        )
+    if part == "all":
+        return specs
+    allowed = PART_A_JOBS if part == "A" else PART_B_JOBS
+    kept = [s for s in specs if s["name"] in allowed]
+    if part == "B":
+        # Part B runs after part A; seed-1/2 validation outputs drive
+        # nothing, so only test generation is needed there.
+        for spec in kept:
+            if spec["kind"] == "qlora" and spec["name"].startswith("qlora_sft_seed"):
+                spec["splits"] = ["test"]
+    return kept
 
 
 def _read_predictions(job_dir: Path) -> list[dict[str, Any]]:

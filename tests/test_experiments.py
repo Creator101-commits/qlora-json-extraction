@@ -89,6 +89,8 @@ def test_job_specs_cover_conditions_and_budgets() -> None:
         "qlora_sft_seed0",
         "qlora_sft_seed1",
         "qlora_sft_seed2",
+        "budget200",
+        "budget400",
     ]
 
 
