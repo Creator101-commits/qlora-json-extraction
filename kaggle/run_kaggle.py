@@ -19,7 +19,10 @@ from pathlib import Path
 
 KAGGLE_INPUT = Path("/kaggle/input")
 WORK = Path("/kaggle/working")
-BENCH = WORK / "benchmark"
+# QLORA_PART selects the job subset (A default); QLORA_BENCH_DIR lets the
+# smoke kernel run both parts into separate work dirs in one session.
+PART = os.environ.get("QLORA_PART", "A")
+BENCH = WORK / os.environ.get("QLORA_BENCH_DIR", "benchmark")
 SRC_SLUG = "qlora-json-extraction-src"
 SRC_OWNER = "sreeharshak101"
 
@@ -56,7 +59,10 @@ def _locate_src_dataset() -> Path:
 
 def _install_package(src: Path) -> Path:
     proj = WORK / "project"
-    shutil.copytree(src, proj, ignore=shutil.ignore_patterns(".git", "__pycache__"))
+    shutil.copytree(
+        src, proj, dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(".git", "__pycache__"),
+    )
     _run([sys.executable, "-m", "pip", "install", "--quiet", "--no-deps", str(proj)])
     _run(
         [
@@ -152,11 +158,12 @@ def main() -> None:
 
     specs_dir = BENCH / "specs"
     specs_dir.mkdir(parents=True, exist_ok=True)
+    print(f"part={PART} bench={BENCH}", flush=True)
     # Reduce allocator fragmentation in the worker subprocesses; the QLoRA
     # smoke OOM showed ~1 GiB reserved-but-unallocated at the failure point.
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     job_timings: dict[str, float] = {}
-    for spec in job_specs(cfg, plan):
+    for spec in job_specs(cfg, plan, PART):
         spec_path = specs_dir / f"{spec['name']}.json"
         spec_path.write_text(json.dumps(spec, indent=2), encoding="utf-8")
         print(f"=== job {spec['name']} ({_gpu_snapshot()}) ===", flush=True)
@@ -187,6 +194,7 @@ def main() -> None:
     run_info = {
         "git_sha": sha,
         "smoke": smoke,
+        "part": PART,
         "data_load_s": t_prepare - t_load,
         "prepare_s": prepare_s,
         "job_timings_s": job_timings,

@@ -1,14 +1,15 @@
-"""Smoke kernel: reduced-work diagnostic run of the QLoRA benchmark.
+"""Smoke kernel: reduced-work diagnostic run of BOTH benchmark parts.
 
-Reuses the archived main kernel script from the source dataset with
-``QLORA_SMOKE=1`` so the full pipeline (data load, schema inventory, dedup
-audit, frozen plan, prompted jobs, one QLoRA seed at one epoch, collect)
-is exercised cheaply before the full run. Smoke outputs are diagnostics
-only and are never committed as results.
+Runs the main kernel script twice with ``QLORA_SMOKE=1``: part A into
+``benchmark_a`` and part B into ``benchmark_b``, each doing prepare, its
+job subset, and collect. Then ``scripts/merge_results.py`` merges the two
+outputs, proving the split protocol end to end on tiny subsets. Smoke
+outputs are diagnostics only and are never committed as results.
 """
 
 import os
 import runpy
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,5 +24,28 @@ if not candidates:
     raise SystemExit("main kernel script not found in the source dataset")
 target = sorted(candidates)[0]
 print(f"smoke: delegating to {target}", flush=True)
-sys.argv = [str(target)]
-runpy.run_path(str(target), run_name="__main__")
+
+work = Path("/kaggle/working")
+for part, bench in (("A", "benchmark_a"), ("B", "benchmark_b")):
+    os.environ["QLORA_PART"] = part
+    os.environ["QLORA_BENCH_DIR"] = bench
+    print(f"=== smoke part {part} -> {bench} ===", flush=True)
+    sys.argv = [str(target)]
+    runpy.run_path(str(target), run_name="__main__")
+
+merge_script = work / "project" / "scripts" / "merge_results.py"
+print(f"=== smoke merge: {merge_script} ===", flush=True)
+subprocess.run(
+    [
+        sys.executable,
+        str(merge_script),
+        "--a",
+        str(work / "benchmark_a"),
+        "--b",
+        str(work / "benchmark_b"),
+        "--out",
+        str(work / "benchmark_merged"),
+    ],
+    check=True,
+)
+print("=== smoke merge OK ===", flush=True)

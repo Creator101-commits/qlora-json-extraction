@@ -12,13 +12,22 @@ cd "$REPO_ROOT"
 
 KAGGLE_BIN="${KAGGLE_BIN:-$HOME/.local/bin/kaggle}"
 SMOKE=0
-if [ "${1:-}" = "--smoke" ]; then
-  SMOKE=1
-fi
+PART=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --smoke) SMOKE=1 ;;
+    --part) PART="${2:?--part needs a|b}"; shift ;;
+    --part=*) PART="${1#--part=}" ;;
+    *) echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
 META="${KAGGLE_META:-}"
 if [ -z "$META" ]; then
   if [ "$SMOKE" -eq 1 ]; then
     META="kaggle_smoke/kernel-metadata.json"
+  elif [ "$PART" = "b" ] || [ "$PART" = "B" ]; then
+    META="kaggle_b/kernel-metadata.json"
   else
     META="kaggle/kernel-metadata.json"
   fi
