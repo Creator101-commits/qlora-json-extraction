@@ -29,7 +29,10 @@ Kaggle scripts, and README claims.
 ## Limits
 
 GPU paths (QLoRA training, batched generation) are exercised only inside
-the Kaggle kernels; local tests inject fake generators. No test metrics
-exist until the Kaggle run completes. CORD-v2 is Indonesian receipts with
-masked store information and a test set of 100 documents, so bootstrap
-intervals are wide.
+the Kaggle kernels; local tests inject fake generators. The smoke kernel
+scores a few test documents with toy models (16 train docs, 1 epoch) and
+no configuration was changed based on those scores; only engineering
+fixes (OOM micro-batch, dataset mount layout) came from smoke evidence.
+No full-run test metrics exist until the Kaggle run completes. CORD-v2 is
+Indonesian receipts with masked store information and a test set of 100
+documents, so bootstrap intervals are wide.

@@ -73,8 +73,12 @@ a parse failure.
 - Structural: JSON parse rate, `CordParseV1` schema-valid rate,
   forbidden-key rate, extra-commentary rate.
 - Semantic: Donut-style field-level micro precision/recall/F1 over
-  (key path, normalized value) multisets, nTED tree-edit-distance accuracy
-  via `zss`, document-level exact match, per-top-level-group F1
+  (key path, normalized value) multisets, Donut nTED accuracy
+  `max(0, 1 - TED(pred, ref) / TED(empty tree, ref))` via `zss` (port of
+  clovaai/donut `JSONParseEvaluator.cal_acc`, MIT: keys sorted by
+  (length, key), scalars wrapped in lists, `<subtree>` nodes for dict
+  list items, `<leaf>` costs by text length, leaf updates by
+  Levenshtein), document-level exact match, per-top-level-group F1
   (menu, sub_total, total), hallucination and omission rates.
 - Uncertainty: document-level paired bootstrap, 2000 resamples, seed 0,
   percentile 95% CIs; QLoRA reports the mean and range over 3 seeds.
@@ -103,7 +107,9 @@ Each condition/seed runs in its own subprocess with resource logging.
 Kernel outputs land in `artifacts/kaggle/<timestamp>/`. The smoke kernel
 uses about 16 train / 8 validation / 8 test docs, one epoch, and all
 conditions; its outputs are diagnostics only and are never committed as
-results.
+results. Smoke scores come from toy models on a handful of test documents
+and no configuration was selected based on them; only engineering fixes
+(OOM micro-batch, dataset mount layout) were made from smoke evidence.
 
 ## Development and Testing
 
