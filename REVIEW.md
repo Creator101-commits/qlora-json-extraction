@@ -22,6 +22,13 @@ Kaggle scripts, and README claims.
 - The runner writes inventory and dedup artifacts plus
   `analysis_plan.json` before any test target is read, and
   `ordering_ok` requires `card_write_epoch < first_test_read_epoch`.
+- The protocol runs as two Kaggle kernels (parts A and B) because the
+  weekly GPU quota cannot hold it in one run. Both parts freeze the same
+  plan; `plan_sha256` (plan minus epochs and timestamps) proves it, and
+  `scripts/merge_results.py` asserts matching git SHA, plan hash,
+  disjoint job sets and `ordering_ok` in both parts before merging.
+  Part A's test numbers exist before part B runs; part B is fully frozen
+  by the shared plan hash.
 - QLoRA loss masks prompt tokens; only assistant target tokens plus EOS
   carry loss. Over-length sequences are dropped and counted, never
   truncated.

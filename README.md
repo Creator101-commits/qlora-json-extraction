@@ -96,20 +96,44 @@ frozen; `analysis_plan.json` and `manifest.json` record
 
 ## Kaggle Execution
 
-The full benchmark runs on a private Kaggle GPU T4 kernel:
+The benchmark runs on private Kaggle GPU T4 kernels, split into two parts
+because the weekly GPU quota cannot hold the whole protocol in one run:
+
+- **Part A** (`sreeharshak101/qlora-json-extraction-benchmark`,
+  `kaggle/`): `zero_shot`, `few_shot`, `qlora_sft_seed0` (validation +
+  test generation), and `budget200` (validation only).
+- **Part B** (`sreeharshak101/qlora-json-extraction-benchmark-b`,
+  `kaggle_b/`, launched after the quota reset): `qlora_sft_seed1` and
+  `qlora_sft_seed2` (test generation only; their validation outputs drive
+  nothing) and `budget400` (validation only).
+
+Both parts run `prepare` independently and freeze the identical plan;
+`analysis_plan.json` carries `plan_sha256`, the sha256 of the plan with
+volatile fields (epochs, timestamps) removed, proving the parts share one
+frozen configuration. Each part writes its own `metrics.json` and
+`manifest.json`; `scripts/merge_results.py` then asserts the same
+git SHA, the same `plan_sha256`, disjoint job sets, and `ordering_ok` in
+both manifests before writing the merged result. Headline comparisons
+and bootstraps come from part A (the seed-0 adapter); QLoRA per-seed
+numbers, mean, sd and range aggregate seeds 0, 1 and 2; the budget curve
+is 200 (A), 400 (B) and 800 (A seed 0). Part A's test numbers therefore
+exist before part B runs, with part B fully frozen by the shared plan
+hash.
 
 ```bash
-scripts/kaggle_run.sh          # full run
-scripts/kaggle_run.sh --smoke  # reduced diagnostic run
+scripts/kaggle_run.sh          # part A full run
+scripts/kaggle_run.sh --part b # part B full run (after quota reset)
+scripts/kaggle_run.sh --smoke  # both parts on tiny subsets + merge
 ```
 
 Each condition/seed runs in its own subprocess with resource logging.
 Kernel outputs land in `artifacts/kaggle/<timestamp>/`. The smoke kernel
 uses about 16 train / 8 validation / 8 test docs, one epoch, and all
-conditions; its outputs are diagnostics only and are never committed as
-results. Smoke scores come from toy models on a handful of test documents
-and no configuration was selected based on them; only engineering fixes
-(OOM micro-batch, dataset mount layout) were made from smoke evidence.
+conditions in both parts; its outputs are diagnostics only and are never
+committed as results. Smoke scores come from toy models on a handful of
+test documents and no configuration was selected based on them; only
+engineering fixes (OOM micro-batch, dataset mount layout) were made from
+smoke evidence.
 
 ## Development and Testing
 
