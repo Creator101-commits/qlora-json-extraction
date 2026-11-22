@@ -103,6 +103,22 @@ def canonicalize_cord_parse(obj: Any) -> Any:
     return obj
 
 
+def key_paths(obj: Any, path: str = "") -> set[str]:
+    """All key paths in a parsed object, ``.`` for fields, ``[]`` for lists."""
+    paths: set[str] = set()
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            child = f"{path}.{key}" if path else str(key)
+            paths.add(child)
+            paths |= key_paths(value, child)
+    elif isinstance(obj, list):
+        marker = f"{path}[]" if path else "[]"
+        paths.add(marker)
+        for item in obj:
+            paths |= key_paths(item, marker)
+    return paths
+
+
 def validate_cord_parse(obj: Any) -> CordParseV1 | None:
     """Validate a parsed JSON object against ``CordParseV1``.
 
