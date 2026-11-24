@@ -208,6 +208,10 @@ this release:
   when the git SHA, `plan_sha256`, disjoint job sets, and `ordering_ok`
   all match.
 
+Because the merge requires an identical git SHA, launch part B from the
+part A commit `9102c11` (for example from a `git worktree` checkout)
+with `scripts/kaggle_run.sh --part b`.
+
 Until part B lands, every QLoRA number here is a single seed and the
 budget curve has one interior point.
 
