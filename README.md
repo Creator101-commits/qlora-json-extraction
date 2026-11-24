@@ -174,6 +174,23 @@ peak GPU memory about 10 GB; seed-0 training 12,050 s and budget-200
 training 3,325 s; all four jobs about 5.3 GPU-hours on one T4. Seed 0
 selected epoch 4 of 5; budget 200 selected epoch 5, the cap.
 
+### What the figure shows
+
+- (a) Per-receipt field F1 on the 100 test receipts: QLoRA points
+  cluster tightly near 0.9, few-shot spreads around 0.4 and zero-shot
+  around 0.33, so the gain is broad rather than carried by a few easy
+  receipts.
+- (b) Field F1 with 95% bootstrap CIs: QLoRA 0.901 [0.855, 0.938],
+  few-shot 0.412 [0.355, 0.471], zero-shot 0.329 [0.290, 0.365]; the
+  intervals do not overlap.
+- (c) Format compliance: QLoRA parses 0.99 and validates 0.97 of
+  outputs, while few-shot is the worst condition on both axes
+  (0.83 parse, 0.62 schema-valid) despite its small F1 gain.
+
+The headline: 4-bit QLoRA lifts receipt field F1 from about 0.33-0.41
+to 0.90 and simultaneously makes outputs schema-valid, while few-shot
+prompting buys a little accuracy at a real format cost.
+
 ## Findings
 
 - **QLoRA transforms the task.** Field F1 rises from 0.329 (zero-shot)

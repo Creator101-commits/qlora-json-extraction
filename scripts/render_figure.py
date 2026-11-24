@@ -278,6 +278,104 @@ def check_legend_data(fig: plt.Figure) -> list[str]:
     return out
 
 
+def check_annotation_data(fig: plt.Figure) -> list[str]:
+    """In-axes annotations vs plotted data."""
+    fig.canvas.draw()
+    fig.canvas.draw()
+    ren = fig.canvas.get_renderer()
+    out = []
+    for ax in fig.axes:
+        for t in ax.texts:
+            if not t.get_text() or not t.get_visible():
+                continue
+            tb = t.get_window_extent(ren)
+            hits = 0
+            for line in ax.lines:
+                if line.get_transform() != ax.transData:
+                    continue
+                pts = ax.transData.transform(line.get_path().vertices)
+                hits += int(
+                    (
+                        (pts[:, 0] > tb.x0)
+                        & (pts[:, 0] < tb.x1)
+                        & (pts[:, 1] > tb.y0)
+                        & (pts[:, 1] < tb.y1)
+                    ).sum()
+                )
+            for coll in ax.collections:
+                offs = coll.get_offsets()
+                if len(offs) == 0 or len(offs) > 5000:
+                    continue
+                pts = ax.transData.transform(offs)
+                hits += int(
+                    (
+                        (pts[:, 0] > tb.x0)
+                        & (pts[:, 0] < tb.x1)
+                        & (pts[:, 1] > tb.y0)
+                        & (pts[:, 1] < tb.y1)
+                    ).sum()
+                )
+            if hits:
+                out.append(f"'{t.get_text()}' overlaps ~{hits} data pts")
+    return out
+
+
+def check_legend_pixels(fig: plt.Figure, path: Path) -> list[str]:
+    """Saturated (colored) data pixels showing through legend boxes."""
+    if not path.exists():
+        return []
+    img = plt.imread(path)
+    H, W = img.shape[:2]
+    rgb = img[..., :3]
+    spread = rgb.max(axis=2) - rgb.min(axis=2)
+    colored = spread > 0.18
+
+    def _collect(o: object, swatches: list) -> None:
+        if type(o).__name__ == "DrawingArea":
+            swatches.append(o)
+            return
+        try:
+            children = o.get_visible_children()
+        except Exception:
+            children = []
+        for c in children:
+            _collect(c, swatches)
+
+    out = []
+    for ax in fig.axes:
+        leg = ax.get_legend()
+        if leg is None:
+            continue
+        bb = leg.get_window_extent(fig.canvas.get_renderer())
+        x0, x1 = int(bb.x0), min(int(bb.x1) + 1, W)
+        y0, y1 = max(0, int(H - bb.y1)), min(H, int(H - bb.y0) + 1)
+        if x1 <= x0 or y1 <= y0:
+            continue
+        region = colored[y0:y1, x0:x1].copy()
+        swatches: list = []
+        box = getattr(leg, "_legend_handle_box", None)
+        if box is not None:
+            _collect(box, swatches)
+        for sw in swatches:
+            try:
+                hb = sw.get_window_extent(fig.canvas.get_renderer())
+            except Exception:
+                continue
+            if not all(np.isfinite([hb.x0, hb.x1, hb.y0, hb.y1])):
+                continue
+            pad = 3
+            hx0, hx1 = int(hb.x0) - x0 - pad, int(hb.x1) - x0 + pad
+            hy0, hy1 = int(H - hb.y1) - y0 - pad, int(H - hb.y0) - y0 + pad
+            rx0, rx1 = max(0, hx0), min(region.shape[1], hx1)
+            ry0, ry1 = max(0, hy0), min(region.shape[0], hy1)
+            if rx1 > rx0 and ry1 > ry0:
+                region[ry0:ry1, rx0:rx1] = False
+        frac = region.mean() if region.size else 0.0
+        if frac > 0.015:
+            out.append(f"legend body ~{frac:.1%} covered by data color")
+    return out
+
+
 def score_test_predictions(
     metrics: dict,
 ) -> dict[str, dict]:
@@ -388,13 +486,19 @@ def render(metrics: dict, scores: dict[str, dict]) -> None:
     fig.canvas.draw()
     verify_categories()
     fig.savefig(OUT_PNG, dpi=DPI, facecolor="white")
-    for kind, problems in (
-        ("text", check_text_overlap(fig)),
-        ("legend-data", check_legend_data(fig)),
-    ):
-        for p in problems:
-            print(f"  CHECK {kind}: {p}")
+    problems: list[str] = []
+    problems += check_text_overlap(fig)
+    problems += check_legend_data(fig)
+    problems += check_annotation_data(fig)
+    problems += check_legend_pixels(fig, OUT_PNG)
     plt.close(fig)
+    if problems:
+        for p in problems[:30]:
+            print(f"  CHECK FAIL: {p}", file=sys.stderr)
+        sys.exit(
+            f"figure checks failed for {OUT_PNG.name}: "
+            f"{len(problems)} problem(s)"
+        )
     print("wrote", OUT_PNG)
 
 
