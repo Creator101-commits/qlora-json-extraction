@@ -107,7 +107,6 @@ def test_nested_budget_subsets() -> None:
     ids400 = {d.doc_id for d in b400}
     assert len(b200) == 200 and len(b400) == 400
     assert ids200 < ids400
-    # determinism
     assert {d.doc_id for d in subsample_docs(docs, 200)} == ids200
     # the 800 point is the full train set, so 400 nests inside it trivially
     assert ids400 < {d.doc_id for d in docs}

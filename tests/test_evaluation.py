@@ -60,7 +60,8 @@ def test_score_doc_missing_field_counts_fn() -> None:
     doc = _doc(target)
     pred = {"menu": [{"nm": "A"}], "total": {"total_price": "1"}}
     score = score_doc(doc, parse_model_output(json.dumps(pred)))
-    # ref has 4 leaves (menu.nm, menu.price, total.total_price, plus? menu[] no leaf)
+    # ref has 4 leaves (e.g. menu.nm, menu.price, total.total_price);
+    # an empty menu[] list adds no leaf.
     assert score.fn == 1  # menu.price omitted
     assert score.tp == score.n_ref_pairs - 1
     assert score.omitted == 1
