@@ -1,0 +1,27 @@
+{
+  "protocol": "cord-qlora-benchmark-v1",
+  "git_sha": "9102c11055d333399f9b0f9c6886d64b6be7d5fb",
+  "card_write_epoch_ns": 1795391238506613050,
+  "first_test_read_epoch_ns": 1795410164742543908,
+  "ordering_ok": true,
+  "conditions_run": [
+    "budget200",
+    "few_shot",
+    "qlora_sft_seed0",
+    "zero_shot"
+  ],
+  "n_scored": {
+    "test": {
+      "budget200": 0,
+      "few_shot": 100,
+      "qlora_sft_seed0": 100,
+      "zero_shot": 100
+    },
+    "validation": {
+      "budget200": 100,
+      "few_shot": 0,
+      "qlora_sft_seed0": 100,
+      "zero_shot": 0
+    }
+  }
+}
