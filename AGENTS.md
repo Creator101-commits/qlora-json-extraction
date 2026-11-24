@@ -22,6 +22,7 @@ uv run mypy src
 - Group exact and near-duplicate documents before splitting; test documents cannot drive prompts, demonstrations, token limits, or checkpoint selection.
 - Validate every output with the versioned Pydantic/JSON Schema and score canonical parsed values.
 - v1 scope is real CORD data only: the synthetic-data ablation and DPO phases are out of scope per the settled brief.
+- `results/` holds unedited part A kernel output; `image.png` renders from `results/` only via `scripts/render_figure.py`. Part B (`kaggle_b/`) is planned future work, merged only through `scripts/merge_results.py` when `plan_sha256` matches.
 
 ## Rules
 
