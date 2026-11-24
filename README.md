@@ -7,7 +7,7 @@ official CORD-v2 receipt dataset, with dedup and ordering controls first.
 
 **Part A is complete; part B is planned future work** (see Future plan).
 
-![QLoRA JSON extraction results](image.png)
+![QLoRA JSON extraction results: per-receipt field F1, bootstrap confidence intervals and parse/schema-valid rates](image.png)
 
 The figure follows the test split: (a) per-receipt field F1,
 (b) field F1 with 95% bootstrap CIs, (c) parse and schema-valid rates.
