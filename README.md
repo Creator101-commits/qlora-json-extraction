@@ -1,5 +1,7 @@
 # QLoRA JSON Extraction
 
+> Turning receipt photos into clean JSON: QLoRA fine-tuning scores 0.90 field F1 against 0.41 for few-shot prompting.
+
 Does supervised fine-tuning beat prompting for turning noisy OCR
 receipt text into schema-valid JSON? This project benchmarks
 zero-shot, few-shot and 4-bit QLoRA SFT of Qwen2.5-3B-Instruct on the
