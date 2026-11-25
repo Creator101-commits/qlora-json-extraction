@@ -1,6 +1,6 @@
 # QLoRA JSON Extraction
 
-> Turning receipt photos into clean JSON: QLoRA fine-tuning scores 0.90 field F1 against 0.41 for few-shot prompting.
+> Receipt text to JSON
 
 Does supervised fine-tuning beat prompting for turning noisy OCR
 receipt text into schema-valid JSON? This project benchmarks
@@ -80,17 +80,3 @@ scripts/kaggle_run.sh          # part A on Kaggle GPU T4
 scripts/kaggle_run.sh --part b # part B, launched from the part A commit
 scripts/kaggle_run.sh --smoke  # tiny-subset check of both parts
 ```
-
-## Notes
-
-- Every QLoRA number is seed 0 only until part B; n = 100 test gives
-  wide intervals, and smoke diagnostics used toy models (nothing was
-  selected from them).
-- 24% of test receipts have a near-duplicate in train/validation;
-  novel-only F1 mitigates but does not eliminate the concern.
-- 4-bit NF4 only, all runs on one Tesla T4; the 200-receipt budget
-  point hit the epoch cap.
-- Data: CORD-v2 (Indonesian receipts, CC BY 4.0) @ `41b07579`, base
-  `Qwen2.5-3B-Instruct` @ `aa8e7253`; `results/` is unedited part A
-  kernel output and `image.png` renders from it (one HTTPS read of
-  `ground_truth` needed).
